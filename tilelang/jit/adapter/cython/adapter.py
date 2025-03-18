@@ -159,6 +159,7 @@ class CythonKernelAdapter(BaseKernelAdapter):
                  func_or_mod: Union[tir.PrimFunc, tvm.IRModule],
                  kernel_global_source: str,
                  verbose: bool = False,
+                 disable_cache: bool = False,
                  pass_configs: Optional[Dict[str, Any]] = None):
         """Initialize the adapter with the given TIR function or module.
         
@@ -195,7 +196,7 @@ class CythonKernelAdapter(BaseKernelAdapter):
         self.wrapped_source = self.wrapper.wrap(self.get_kernel_source(kernel_only=True))
 
         self.lib_generator.update_lib_code(self.wrapped_source)
-        self.lib_generator.compile_lib()
+        self.lib_generator.compile_lib(disable_cache=disable_cache)
         self.lib = self.lib_generator.load_lib()
 
         try:

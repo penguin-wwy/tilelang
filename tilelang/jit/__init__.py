@@ -27,6 +27,7 @@ def jit(
     execution_backend: Literal["dlpack", "ctypes", "cython"] = "cython",
     target: Union[str, Target] = "auto",
     verbose: bool = False,
+    disable_cache: bool = False,
     **pass_config_kwargs: Optional[Dict[str, Any]],
 ) -> BaseKernelAdapter:
     """
@@ -93,6 +94,7 @@ def jit(
             tilelang_func,
             target=target,
             verbose=verbose,
+            disable_cache=disable_cache,
             execution_backend=execution_backend,
             out_idx=out_idx,
             **pass_config_kwargs,
@@ -117,6 +119,7 @@ def compile(
     target_host: Union[str, Target] = None,
     verbose: bool = False,
     pass_configs: Optional[Dict[str, Any]] = None,
+    disable_cache: bool = False,
 ) -> JITKernel:
     """
     Compile the given TileLang PrimFunc with TVM and build a JITKernel.
@@ -128,5 +131,6 @@ def compile(
         target=target,
         target_host=target_host,
         verbose=verbose,
+        disable_cache=disable_cache,
         pass_configs=pass_configs,
     )

@@ -39,6 +39,7 @@ class JITKernel(object):
         target: Union[str, Target] = "auto",
         target_host: Union[str, Target] = None,
         verbose: bool = False,
+        disable_cache: bool = False,
         pass_configs: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -70,6 +71,7 @@ class JITKernel(object):
         self.target = target
         self.target_host = target_host
         self.verbose = verbose
+        self.disable_cache = disable_cache
 
         if pass_configs is None:
             pass_configs = {}
@@ -159,6 +161,7 @@ class JITKernel(object):
                 func_or_mod=tilelang_func,
                 kernel_global_source=kernel_global_source,
                 verbose=verbose,
+                disable_cache=self.disable_cache,
                 pass_configs=pass_configs,
             )
         elif execution_backend == "cython":
@@ -171,6 +174,7 @@ class JITKernel(object):
                 func_or_mod=tilelang_func,
                 kernel_global_source=kernel_global_source,
                 verbose=verbose,
+                disable_cache=self.disable_cache,
                 pass_configs=pass_configs,
             )
         else:

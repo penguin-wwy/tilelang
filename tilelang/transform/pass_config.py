@@ -109,7 +109,14 @@ class PassConfigKey(str, Enum):
     """
 
     TL_CONFIG_INDEX_BITWIDTH = "tl.config_index_bitwidth"
-    """Bitwidth for configuration indices. Default: 32"""
+    """Configure signed buffer-access index arithmetic. Unset or 32 keeps
+    automatic index legalization, including required int64 promotion; it does
+    not force existing int64 expressions to int32. Setting 64 widens index
+    expressions and access-pointer offsets at their use sites, preserving
+    parameter and buffer declarations. This explicit mode treats bindings,
+    casts, loaded data, and fixed-ABI calls as values of their original types.
+    The option does not add runtime range checks. Supported values: 32 and 64.
+    """
 
     TL_ENABLE_REDUCER_PLAN_VERBOSE = "tl.enable_reducer_plan_verbose"
     """Log each reducer epoch's chosen physical plan (and narrow-plan

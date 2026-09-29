@@ -32,8 +32,7 @@ ComputeDefaultWarpPartition(const GemmWarpPolicyNode &policy, int M, int N,
   constexpr int kMPerWarp = 16;
   constexpr int kNPerWarp = 16;
 
-  // Guard the callers that do not go through ComputeWarpPartition: a zero
-  // warp count makes the modulo below divide by zero and kills the process.
+  // Also guard callers that do not go through ComputeWarpPartition.
   ICHECK_GT(num_warps, 0) << "num_warps must be positive, but got "
                           << num_warps;
   ICHECK(M % kMPerWarp == 0)
@@ -41,55 +40,67 @@ ComputeDefaultWarpPartition(const GemmWarpPolicyNode &policy, int M, int N,
   ICHECK(N % kNPerWarp == 0)
       << "N must be divisible by " << kNPerWarp << ", but got " << N;
 
+  // Both the warp partition and each warp's instruction tiles must cover
+  // complete rows and columns; otherwise the emitter truncates the remainder.
+  auto is_valid = [&](int m, int n) {
+    return m * n == num_warps && M >= m * kMPerWarp && N >= n * kNPerWarp &&
+           M % (m * kMPerWarp) == 0 && N % (n * kNPerWarp) == 0;
+  };
+
+  bool found = false;
   if (policy.IsFullRow()) {
-    m_warp = num_warps;
-    n_warp = 1;
-    if (M % (m_warp * kMPerWarp) != 0) {
-      int max_m_warps = M / kMPerWarp;
-      m_warp = max_m_warps;
-      n_warp = num_warps / m_warp;
-      if (n_warp == 0)
-        n_warp = 1;
+    for (int m = num_warps; m >= 1; m--) {
+      if (num_warps % m != 0 || !is_valid(m, num_warps / m))
+        continue;
+      m_warp = m;
+      n_warp = num_warps / m;
+      found = true;
+      break;
     }
   } else if (policy.IsFullCol()) {
-    m_warp = 1;
-    n_warp = num_warps;
-    if (N % (n_warp * kNPerWarp) != 0) {
-      int max_n_warps = N / kNPerWarp;
-      n_warp = max_n_warps;
-      m_warp = num_warps / n_warp;
-      if (m_warp == 0)
-        m_warp = 1;
+    for (int n = num_warps; n >= 1; n--) {
+      if (num_warps % n != 0 || !is_valid(num_warps / n, n))
+        continue;
+      n_warp = n;
+      m_warp = num_warps / n;
+      found = true;
+      break;
     }
   } else if (policy.IsSquare()) {
-    int max_m_warps = M / kMPerWarp;
     float ideal_ratio = N > 0 ? static_cast<float>(M) / N : 1.0f;
 
-    int best_m = 1;
-    int best_n = 1;
     float best_balance = std::numeric_limits<float>::max();
-    for (int m = 1; m <= max_m_warps && m <= num_warps; m++) {
+    for (int m = 1; m <= num_warps; m++) {
+      if (num_warps % m != 0)
+        continue;
       int n = num_warps / m;
+      if (!is_valid(m, n))
+        continue;
 
       float m_per_warp = static_cast<float>(M) / (m * kMPerWarp);
       float n_per_warp = static_cast<float>(N) / (n * kNPerWarp);
-      if (m_per_warp < 1 || n_per_warp < 1)
-        continue;
-      if (m * n != num_warps)
-        continue;
-
       float balance = std::abs(m_per_warp / n_per_warp - ideal_ratio);
       if (balance < best_balance) {
         best_balance = balance;
-        best_m = m;
-        best_n = n;
+        m_warp = m;
+        n_warp = n;
+        found = true;
       }
     }
-
-    m_warp = best_m;
-    n_warp = best_n;
   } else {
     ICHECK(0) << "Unknown GemmWarpPolicy";
+  }
+
+  if (!found) {
+    LOG(FATAL) << "No valid warp partition for ROCm T.gemm: M=" << M
+               << ", N=" << N << " cannot be evenly covered by " << num_warps
+               << " warps (policy="
+               << (policy.IsFullRow()   ? "FullRow"
+                   : policy.IsFullCol() ? "FullCol"
+                                        : "Square")
+               << "). Each warp must own a multiple of " << kMPerWarp
+               << " rows and " << kNPerWarp
+               << " columns; adjust `threads` or the block tile shape.";
   }
 
   ICHECK(m_warp * n_warp == num_warps)

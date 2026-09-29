@@ -72,6 +72,11 @@ class WMMAIntrinEmitter:
         assert accum_dtype == "float32", f"Unsupported accum_dtype: {accum_dtype}"
         assert target is not None, "WMMAIntrinEmitter requires a HIP target to select WMMA layouts."
 
+        if warp_row_tiles <= 0 or warp_row_tiles % self.M_DIM != 0:
+            raise ValueError(f"warp_row_tiles must be a positive multiple of {self.M_DIM} for RDNA WMMA, got {warp_row_tiles}")
+        if warp_col_tiles <= 0 or warp_col_tiles % self.N_DIM != 0:
+            raise ValueError(f"warp_col_tiles must be a positive multiple of {self.N_DIM} for RDNA WMMA, got {warp_col_tiles}")
+
         self.a_dtype = a_dtype
         self.b_dtype = b_dtype
         self.accum_dtype = accum_dtype
